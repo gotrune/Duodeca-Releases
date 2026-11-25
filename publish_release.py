@@ -11,12 +11,31 @@ import json
 import hashlib
 import argparse
 import mimetypes
+import subprocess
 from pathlib import Path
 from urllib import request, error
 
 # Default GitHub Configuration
 GITHUB_OWNER = "gotrune"
 GITHUB_REPO = "Duodeca-Releases"
+
+def get_git_credential_token() -> str:
+    """Retrieve GitHub token automatically from Git Credential Manager."""
+    try:
+        proc = subprocess.Popen(
+            ["git", "credential", "fill"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        out, _ = proc.communicate(input="protocol=https\nhost=github.com\n", timeout=5)
+        for line in out.splitlines():
+            if line.startswith("password="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
 
 def compute_sha256(file_path: Path) -> str:
     h = hashlib.sha256()
@@ -127,6 +146,12 @@ def main():
     tag_name = f"v{version}"
     
     token = args.token
+    if not token:
+        token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        token = get_git_credential_token()
+        if token:
+            print("[AUTH] Jeton GitHub récupéré automatiquement via Git Credential Manager.")
     if not args.dry_run and not token:
         token = input("Entrez votre GitHub Personal Access Token (PAT) : ").strip()
         if not token:
