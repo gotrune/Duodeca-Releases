@@ -120,13 +120,14 @@ def main():
     parser.add_argument("--repo", default=GITHUB_REPO, help="Nom du repo GitHub de releases")
     parser.add_argument("--draft", action="store_true", help="Créer la release en mode brouillon")
     parser.add_argument("--prerelease", action="store_true", help="Marquer comme pré-version")
+    parser.add_argument("--dry-run", action="store_true", help="Tester la détection des binaires et les checksums sans envoyer à GitHub")
     
     args = parser.parse_args()
     version = args.version.lstrip("v")
     tag_name = f"v{version}"
     
     token = args.token
-    if not token:
+    if not args.dry_run and not token:
         token = input("Entrez votre GitHub Personal Access Token (PAT) : ").strip()
         if not token:
             print("[ERREUR] Un token GitHub est obligatoire pour publier la release.", file=sys.stderr)
@@ -167,6 +168,14 @@ def main():
     checksum_file.write_text("\n".join(checksums) + "\n", encoding="utf-8")
     ready_files["checksums.txt"] = checksum_file
     print(" - checksums.txt généré avec succès.")
+    
+    if args.dry_run:
+        print("\n[DRY RUN] Mode simulation actif : aucun appel réseau effectué.")
+        print(f"Fichiers prêts dans {staging_dir} :")
+        for f in ready_files:
+            print(f" - {f}")
+        print("\nTest réussi !")
+        return
     
     print(f"\n[3/4] Création de la release sur GitHub ({tag_name})...")
     create_release_url = f"https://api.github.com/repos/{args.owner}/{args.repo}/releases"
