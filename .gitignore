@@ -1,0 +1,35 @@
+# Anti-bloat gitignore: NEVER commit binaries to git history!
+# Binaries must strictly be uploaded as GitHub Release Assets.
+
+# Binary files
+*.exe
+*.bin
+*.hex
+*.elf
+*.o
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.zip
+*.tar.*
+*.7z
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Build outputs & staging
+build/
+dist/
+staging/
+temp/
+
+# OS artifacts
+Thumbs.db
+.DS_Store
+*.log
