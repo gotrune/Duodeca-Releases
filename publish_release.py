@@ -61,8 +61,10 @@ def github_request(url: str, token: str, method: str = "GET", data: bytes = None
         raise
 
 def collect_binaries(base_dir: Path, version: str):
-    """Locate compiled binaries from project folders."""
+    """Locate compiled binaries from project folders and prepare merged ESP32 images."""
     artifacts = {}
+    staging_dir = Path(__file__).resolve().parent / "staging"
+    staging_dir.mkdir(exist_ok=True)
     
     # 1. DuodecaControl .exe
     exe_candidates = [
@@ -90,18 +92,74 @@ def collect_binaries(base_dir: Path, version: str):
         artifacts[dest] = stm_hex
         print(f"[FOUND] STM32 .hex: {stm_hex} -> {dest}")
         
-    # 3. ESP32 Binaries
-    esp_candidates = [
-        base_dir / "Dsproamp" / ".pio" / "build" / "esp32dev_tft" / "firmware.bin",
-        base_dir / "Dsproamp" / "build" / "firmware.bin",
-        base_dir / "Dsproamp" / "firmware_backup.bin",
-    ]
-    for c in esp_candidates:
-        if c.is_file():
-            dest = f"Firmware-ESP32-DSP-TFT-v{version}.bin"
-            artifacts[dest] = c
-            print(f"[FOUND] ESP32 firmware: {c} -> {dest}")
-            break
+    # 3. ESP32 Binaries (TFT + LCD 16x2, image fusionnée 0x0 prête à flasher)
+    for variant, label in (("tft", "TFT"), ("lcd2x16", "LCD")):
+        build_candidates = [
+            base_dir / "Dsproamp" / "ESP-IDF" / ".pio" / "build" / f"esp32dev_{variant}",
+            Path(r"C:\Temp\dsproamp_esp_idf") / ".pio" / "build" / f"esp32dev_{variant}",
+            base_dir / "Dsproamp" / ".pio" / "build" / f"esp32dev_{variant}",
+        ]
+        found_dir = None
+        for bdir in build_candidates:
+            if (
+                (bdir / "bootloader.bin").is_file()
+                and (bdir / "partitions.bin").is_file()
+                and (bdir / "firmware.bin").is_file()
+            ):
+                found_dir = bdir
+                break
+
+        if found_dir is None:
+            continue
+
+        dest = f"Firmware-ESP32-DSP-{label}-v{version}.bin"
+        merged_out = staging_dir / dest
+        boot = found_dir / "bootloader.bin"
+        part = found_dir / "partitions.bin"
+        ota = found_dir / "ota_data_initial.bin"
+        firm = found_dir / "firmware.bin"
+
+        segments = ["0x1000", str(boot), "0x8000", str(part)]
+        if ota.is_file():
+            segments.extend(["0xe000", str(ota)])
+        segments.extend(["0x10000", str(firm)])
+
+        merged_ok = False
+        try:
+            import esptool  # type: ignore
+
+            major = int(str(getattr(esptool, "__version__", "5")).split(".", 1)[0])
+            merge_cmd = "merge-bin" if major >= 5 else "merge_bin"
+            cmd = [
+                sys.executable,
+                "-m",
+                "esptool",
+                "--chip",
+                "esp32",
+                merge_cmd,
+                "-o",
+                str(merged_out),
+                "--flash-mode" if major >= 5 else "--flash_mode",
+                "dio",
+                "--flash-freq" if major >= 5 else "--flash_freq",
+                "40m",
+                "--flash-size" if major >= 5 else "--flash_size",
+                "4MB",
+                "--fill-flash-size" if major >= 5 else "--fill_flash_size",
+                "4MB",
+                *segments,
+            ]
+            subprocess.check_call(cmd)
+            merged_ok = merged_out.is_file()
+        except Exception as e:
+            print(f"[WARN] Fusion esptool impossible pour {variant} ({e}); copie de firmware.bin seul.")
+
+        if merged_ok:
+            artifacts[dest] = merged_out
+            print(f"[MERGED] ESP32 {label}: {found_dir} -> {dest}")
+        else:
+            artifacts[dest] = firm
+            print(f"[FOUND] ESP32 {label} (app seule): {firm} -> {dest}")
             
     return artifacts
 
@@ -179,9 +237,10 @@ def main():
     
     for final_name, src_path in artifacts.items():
         staged_file = staging_dir / final_name
-        # Copie vers staging
-        with open(src_path, "rb") as sf, open(staged_file, "wb") as df:
-            df.write(sf.read())
+        # Copie vers staging uniquement si ce n'est pas déjà le fichier fusionné
+        if src_path.resolve() != staged_file.resolve():
+            with open(src_path, "rb") as sf, open(staged_file, "wb") as df:
+                df.write(sf.read())
             
         sha = compute_sha256(staged_file)
         checksums.append(f"{sha}  {final_name}")
