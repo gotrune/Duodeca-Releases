@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Duodeca Automated Release Publisher
-Publishes STM32, ESP32 and Windows binaries to the public GitHub Releases repository
+Publishes STM32, ESP32, Windows and Android binaries to the public GitHub Releases repository
 without polluting the git repository history.
 """
 
@@ -66,11 +66,11 @@ def collect_binaries(base_dir: Path, version: str):
     staging_dir = Path(__file__).resolve().parent / "staging"
     staging_dir.mkdir(exist_ok=True)
     
-    # 1. DuodecaControl .exe
+    # 1. DuodecaControl .exe (priorité au build moderne DuodecaControl.exe)
     exe_candidates = [
+        base_dir / "DuodecaControl" / "dist" / "DuodecaControl.exe",
         base_dir / "DuodecaControl" / "pyinstaller" / "dist" / "DuodecaControl.exe",
         base_dir / "DuodecaControl" / "pyinstaller" / "dist" / "Gui_IA_Ampli.exe",
-        base_dir / "DuodecaControl" / "dist" / "DuodecaControl.exe",
         base_dir / "DuodecaControl" / "Gui_IA_Ampli.exe",
     ]
     for c in exe_candidates:
@@ -78,6 +78,17 @@ def collect_binaries(base_dir: Path, version: str):
             dest_name = f"DuodecaControl-v{version}-Windows.exe"
             artifacts[dest_name] = c
             print(f"[FOUND] PC GUI: {c} -> {dest_name}")
+            break
+
+    # 1b. DuodecaControl Android .apk (application native DuodecaControlAndroid)
+    apk_candidates = [
+        base_dir / "DuodecaControlAndroid" / "app" / "build" / "outputs" / "apk" / "release" / "app-release.apk",
+    ]
+    for c in apk_candidates:
+        if c.is_file():
+            dest_name = f"DuodecaControl-v{version}-Android.apk"
+            artifacts[dest_name] = c
+            print(f"[FOUND] Android APK: {c} -> {dest_name}")
             break
     
     # 2. STM32 Binaries

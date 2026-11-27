@@ -13,10 +13,12 @@ Ce dépôt héberge les fichiers compilés prêts à l'emploi (firmwares et appl
 ### Fichiers disponibles par release :
 | Binaire | Cible / Plateforme | Description |
 | :--- | :--- | :--- |
-| `DuodecaControl-vX.Y.Z-Windows.exe` | Windows 10/11 | Application PC de contrôle (Interface graphique PyQt + Bluetooth SPP) |
+| `DuodecaControl-vX.Y.Z-Windows.exe` | Windows 10/11 | Application PC de contrôle (Interface graphique PyQt + Bluetooth SPP / USB) |
+| `DuodecaControl-vX.Y.Z-Android.apk` | Android | Application mobile de contrôle (Bluetooth SPP / BLE) |
 | `Firmware-STM32-USB-I2S-vX.Y.Z.bin` | STM32F446 | Firmware USB-to-I2S Audio (format binaire direct) |
 | `Firmware-STM32-USB-I2S-vX.Y.Z.hex` | STM32F446 | Firmware USB-to-I2S Audio (format Intel HEX) |
-| `Firmware-ESP32-DSP-TFT-vX.Y.Z.bin` | ESP32 | Firmware DSP & Gestion Audio (écran TFT) |
+| `Firmware-ESP32-DSP-TFT-vX.Y.Z.bin` | ESP32 | Firmware DSP & Gestion Audio (écran TFT, image fusionnée 0x0) |
+| `Firmware-ESP32-DSP-LCD-vX.Y.Z.bin` | ESP32 | Firmware DSP & Gestion Audio (écran LCD 16x2, image fusionnée 0x0) |
 | `checksums.txt` | Tous | Sommes de contrôle SHA-256 pour vérifier l'intégrité des fichiers |
 
 ---
